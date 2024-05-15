@@ -15,11 +15,9 @@
 package app
 
 import (
-	"os"
 	"time"
 
 	"github.com/spf13/pflag"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -32,48 +30,60 @@ var (
 )
 
 func DefineResourcesFlags(flagSet *pflag.FlagSet) {
-	ResourcesPath = os.Getenv(ConfigEnvName("RESOURCES"))
+	ResourcesPath = SetStringVarFromEnv("RESOURCES", ResourcesPath)
 	flagSet.StringVar(
 		&ResourcesPath,
 		"resources",
-		"",
+		ResourcesPath,
 		"Path to a file with declared Kubernetes resources in YAML format.\nDeprecated. Please use --config flag multiple repeatedly for logical resources separation.",
 	)
 
-	ResourcesTimeout = os.Getenv(ConfigEnvName("RESOURCES_TIMEOUT"))
+	ResourcesTimeout = SetStringVarFromEnv("RESOURCES_TIMEOUT", ResourcesTimeout)
 	flagSet.StringVar(
 		&ResourcesTimeout,
 		"resources-timeout",
-		"",
+		ResourcesTimeout,
 		"Timeout to create resources. Experimental. This feature may be deleted in the future.",
 	)
 }
 
-func DefineDeckhouseFlags(cmd *kingpin.CmdClause) {
-	cmd.Flag("deckhouse-timeout", "Timeout to install deckhouse. Experimental. This feature may be deleted in the future.").
-		Envar(ConfigEnvName("DECKHOUSE_TIMEOUT")).
-		Default(DeckhouseTimeout.String()).
-		DurationVar(&DeckhouseTimeout)
+func DefineDeckhouseFlags(flagSet *pflag.FlagSet) {
+	DeckhouseTimeout = SetDurationVarFromEnv("DECKHOUSE_TIMEOUT", DeckhouseTimeout)
+	flagSet.DurationVar(
+		&DeckhouseTimeout,
+		"deckhouse-timeout",
+		DeckhouseTimeout,
+		"Timeout to install deckhouse. Experimental. This feature may be deleted in the future.",
+	)
 }
 
-func DefineDontUsePublicImagesFlags(cmd *kingpin.CmdClause) {
-	const help = `DEPRECATED. Don't use public images for control-plane components.`
-	cmd.Flag("dont-use-public-control-plane-images", help).
-		Envar(ConfigEnvName("DONT_USE_PUBLIC_CONTROL_PLANE_IMAGES")).
-		Default("false").
-		BoolVar(&DontUsePublicControlPlaneImages)
+func DefineDontUsePublicImagesFlags(flagSet *pflag.FlagSet) {
+	DontUsePublicControlPlaneImages = SetBoolVarFromEnv("DONT_USE_PUBLIC_CONTROL_PLANE_IMAGES", DontUsePublicControlPlaneImages)
+	flagSet.BoolVar(
+		&DontUsePublicControlPlaneImages,
+		"dont-use-public-control-plane-images",
+		DontUsePublicControlPlaneImages,
+		"DEPRECATED. Don't use public images for control-plane components.",
+	)
 }
 
-func DefinePostBootstrapScriptFlags(cmd *kingpin.CmdClause) {
-	cmd.Flag("post-bootstrap-script-path", `Path to bash (or another interpreted language which installed on master node) script which will execute after bootstrap resources.
+func DefinePostBootstrapScriptFlags(flagSet *pflag.FlagSet) {
+	PostBootstrapScriptPath = SetStringVarFromEnv("POST_BOOTSTRAP_SCRIPT_PATH", PostBootstrapScriptPath)
+	flagSet.StringVar(
+		&PostBootstrapScriptPath,
+		"post-bootstrap-script-path",
+		PostBootstrapScriptPath,
+		`Path to bash (or another interpreted language which installed on master node) script which will execute after bootstrap resources.
 All output of the script will be logged with Info level with prefix 'Post-bootstrap script result:'.
 If you want save to state cache on key 'post-bootstrap-result' you need to out result with prefix 'Result of post-bootstrap script:' in one line.
-Experimental. This feature may be deleted in the future.`).
-		Envar(ConfigEnvName("POST_BOOTSTRAP_SCRIPT_PATH")).
-		StringVar(&PostBootstrapScriptPath)
+Experimental. This feature may be deleted in the future.`,
+	)
 
-	cmd.Flag("post-bootstrap-script-timeout", "Timeout to execute after bootstrap resources script. Experimental. This feature may be deleted in the future.").
-		Envar(ConfigEnvName("POST_BOOTSTRAP_SCRIPT_TIMEOUT")).
-		Default(PostBootstrapScriptTimeout.String()).
-		DurationVar(&PostBootstrapScriptTimeout)
+	PostBootstrapScriptTimeout = SetDurationVarFromEnv("POST_BOOTSTRAP_SCRIPT_TIMEOUT", PostBootstrapScriptTimeout)
+	flagSet.DurationVar(
+		&PostBootstrapScriptTimeout,
+		"post-bootstrap-script-timeout",
+		PostBootstrapScriptTimeout,
+		"Timeout to execute after bootstrap resources script. Experimental. This feature may be deleted in the future.",
+	)
 }

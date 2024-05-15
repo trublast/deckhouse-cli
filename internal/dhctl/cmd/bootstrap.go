@@ -2,32 +2,55 @@ package dhctl
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/kubectl/pkg/util/templates"
+	"k8s.io/component-base/logs"
 
 	"github.com/deckhouse/deckhouse-cli/internal/dhctl/cmd/app"
+	"github.com/deckhouse/deckhouse-cli/internal/dhctl/image"
 )
 
 func DefineBootstrapCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "bootstrap",
 		Short:         "Bootstrap cluster.",
-		Long:          templates.LongDesc(`Bootstrap cluster.` + licenceNote),
+		Long:          "Bootstrap cluster.\n" + licenceNote,
 		SilenceErrors: true,
 		SilenceUsage:  true,
+		PreRunE:       parseAndValidateParameters,
+		RunE:          bootstrap,
+		PostRunE:      cleanup,
 	}
 	/*
-		app.DefineSSHFlags(cmd)
-		app.DefineConfigFlags(cmd)
-		app.DefineBecomeFlags(cmd)
-		app.DefineCacheFlags(cmd)
-		app.DefineDropCacheFlags(cmd)
-	*/
+	 */
+	app.DefineCacheFlags(cmd.Flags())
+	app.DefineDropCacheFlags(cmd.Flags())
+	app.GlobalFlags(cmd.Flags())
+	app.DefineConfigFlags(cmd.Flags())
+	app.DefineSSHFlags(cmd.Flags())
+	app.DefineBecomeFlags(cmd.Flags())
 	app.DefineResourcesFlags(cmd.Flags())
-	/*
-		app.DefineDeckhouseFlags(cmd)
-		app.DefineDontUsePublicImagesFlags(cmd)
-		app.DefinePostBootstrapScriptFlags(cmd)
-		app.DefinePreflight(cmd)
-	*/
+	app.DefinePreflight(cmd.Flags())
+	app.DefineDeckhouseFlags(cmd.Flags())
+	app.DefineDontUsePublicImagesFlags(cmd.Flags())
+	app.DefinePostBootstrapScriptFlags(cmd.Flags())
+
+	logs.AddFlags(cmd.Flags())
 	return cmd
+}
+
+func parseAndValidateParameters(cmd *cobra.Command, args []string) error {
+	err := app.CheckConfigParameters()
+	if err != nil {
+		return err
+	}
+	return app.CheckSSHParameters()
+}
+
+func bootstrap(cmd *cobra.Command, args []string) error {
+	ctx := buildInstallerContext()
+	return image.PullInstallerImage(ctx)
+
+}
+
+func cleanup(cmd *cobra.Command, args []string) error {
+	return nil
 }

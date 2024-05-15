@@ -16,10 +16,32 @@ package dhctl
 
 import (
 	"os"
+	"path/filepath"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/spf13/pflag"
 
 	"github.com/deckhouse/deckhouse-cli/internal/dhctl/cmd/app"
+	"github.com/deckhouse/deckhouse-cli/internal/dhctl/image"
+	"github.com/deckhouse/deckhouse-cli/internal/mirror/contexts"
+)
+
+const (
+	deckhouseRegistryHost     = "registry.deckhouse.io"
+	enterpriseEditionRepoPath = "/deckhouse/ee"
+	enterpriseEditionRepo     = deckhouseRegistryHost + enterpriseEditionRepoPath
+)
+
+var (
+	TempDir       = filepath.Join(os.TempDir(), "dhctl")
+	Insecure      bool
+	TLSSkipVerify bool
+
+	RegistryRepo     = enterpriseEditionRepo // Fallback to EE if nothing was given as source.
+	RegistryLogin    string
+	RegistryPassword string
+	LicenseToken     string
+	ImageTag         string
 )
 
 func addRegistryFlags(flagSet *pflag.FlagSet) {
@@ -63,7 +85,7 @@ func addRegistryFlags(flagSet *pflag.FlagSet) {
 		"Pull dhctl with specified tag.",
 	)
 
-	TLSSkipVerify = os.Getenv("TLS-SKIP-VERIFY") == "true"
+	TLSSkipVerify = app.SetBoolVarFromEnv("TLS-SKIP-VERIFY", TLSSkipVerify)
 	flagSet.BoolVar(
 		&TLSSkipVerify,
 		"tls-skip-verify",
@@ -71,11 +93,44 @@ func addRegistryFlags(flagSet *pflag.FlagSet) {
 		"Disable TLS certificate validation.",
 	)
 
-	Insecure = os.Getenv("INSECURE") == "true"
+	Insecure = app.SetBoolVarFromEnv("INSECURE", Insecure)
 	flagSet.BoolVar(
 		&Insecure,
 		"insecure",
 		false,
 		"Interact with registries over HTTP.",
 	)
+}
+
+func getSourceRegistryAuthProvider() authn.Authenticator {
+	if RegistryLogin != "" {
+		return authn.FromConfig(authn.AuthConfig{
+			Username: RegistryLogin,
+			Password: RegistryPassword,
+		})
+	}
+
+	if LicenseToken != "" {
+		return authn.FromConfig(authn.AuthConfig{
+			Username: "license-token",
+			Password: LicenseToken,
+		})
+	}
+
+	return authn.Anonymous
+}
+
+func buildInstallerContext() *image.InstallerContext {
+	ctx := &image.InstallerContext{
+		BaseContext: contexts.BaseContext{
+			Insecure:              Insecure,
+			SkipTLSVerification:   TLSSkipVerify,
+			DeckhouseRegistryRepo: RegistryRepo,
+			RegistryAuth:          getSourceRegistryAuthProvider(),
+			UnpackedImagesPath:    TempDir,
+		},
+		Args:     os.Args[1:],
+		ImageTag: ImageTag,
+	}
+	return ctx
 }

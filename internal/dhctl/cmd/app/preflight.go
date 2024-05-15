@@ -15,7 +15,7 @@
 package app
 
 import (
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/spf13/pflag"
 )
 
 var (
@@ -35,23 +35,52 @@ const (
 	RegistryThroughProxyCheckArgName = "preflight-skip-registry-through-proxy"
 )
 
-func DefinePreflight(cmd *kingpin.CmdClause) {
-	cmd.Flag("preflight-skip-all-checks", "Skip all preflight checks").
-		Envar(ConfigEnvName("PREFLIGHT_SKIP_ALL_CHECKS")).
-		BoolVar(&PreflightSkipAll)
-	cmd.Flag(SSHForwardArgName, "Skip SSH forward preflight check").
-		Envar(ConfigEnvName("PREFLIGHT_SKIP_SSH_FORWARD_CHECK")).
-		BoolVar(&PreflightSkipSSHForword)
-	cmd.Flag(PortsAvailabilityArgName, "Skip availability ports preflight check").
-		Envar(ConfigEnvName("PREFLIGHT_SKIP_AVAILABILITY_PORTS_CHECK")).
-		BoolVar(&PreflightSkipAvailabilityPorts)
-	cmd.Flag(ResolvingLocalhostArgName, "Skip resolving the localhost domain").
-		Envar(ConfigEnvName("PREFLIGHT_SKIP_RESOLVING_LOCALHOST_CHECK")).
-		BoolVar(&PreflightSkipResolvingLocalhost)
-	cmd.Flag(DeckhouseVersionCheckArgName, "Skip verifying deckhouse version").
-		Envar(ConfigEnvName("PREFLIGHT_SKIP_INCOMPATIBLE_VERSION_CHECK")).
-		BoolVar(&PreflightSkipDeckhouseVersionCheck)
-	cmd.Flag(RegistryThroughProxyCheckArgName, "Skip verifying deckhouse version").
-		Envar(ConfigEnvName("PREFLIGHT_SKIP_REGISTRY_THROUGH_PROXY")).
-		BoolVar(&PreflightSkipRegistryThroughProxy)
+func DefinePreflight(flagSet *pflag.FlagSet) {
+	PreflightSkipAll = SetBoolVarFromEnv("PREFLIGHT_SKIP_ALL_CHECKS", PreflightSkipAll)
+	flagSet.BoolVar(
+		&PreflightSkipAll,
+		"preflight-skip-all-checks",
+		PreflightSkipAll,
+		"Skip all preflight checks.",
+	)
+
+	PreflightSkipSSHForword = SetBoolVarFromEnv("PREFLIGHT_SKIP_SSH_FORWARD_CHECK", PreflightSkipSSHForword)
+	flagSet.BoolVar(
+		&PreflightSkipSSHForword,
+		SSHForwardArgName,
+		PreflightSkipSSHForword,
+		"Skip SSH forward preflight check.",
+	)
+
+	PreflightSkipAvailabilityPorts = SetBoolVarFromEnv("PREFLIGHT_SKIP_AVAILABILITY_PORTS_CHECK", PreflightSkipAvailabilityPorts)
+	flagSet.BoolVar(
+		&PreflightSkipAvailabilityPorts,
+		PortsAvailabilityArgName,
+		PreflightSkipAvailabilityPorts,
+		"Skip availability ports preflight check.",
+	)
+
+	PreflightSkipResolvingLocalhost = SetBoolVarFromEnv("PREFLIGHT_SKIP_RESOLVING_LOCALHOST_CHECK", PreflightSkipResolvingLocalhost)
+	flagSet.BoolVar(
+		&PreflightSkipResolvingLocalhost,
+		ResolvingLocalhostArgName,
+		PreflightSkipResolvingLocalhost,
+		"Skip resolving the localhost domain.",
+	)
+
+	PreflightSkipDeckhouseVersionCheck = SetBoolVarFromEnv("PREFLIGHT_SKIP_INCOMPATIBLE_VERSION_CHECK", PreflightSkipDeckhouseVersionCheck)
+	flagSet.BoolVar(
+		&PreflightSkipDeckhouseVersionCheck,
+		DeckhouseVersionCheckArgName,
+		PreflightSkipDeckhouseVersionCheck,
+		"Skip verifying deckhouse version.",
+	)
+
+	PreflightSkipRegistryThroughProxy = SetBoolVarFromEnv("PREFLIGHT_SKIP_REGISTRY_THROUGH_PROXY", PreflightSkipRegistryThroughProxy)
+	flagSet.BoolVar(
+		&PreflightSkipRegistryThroughProxy,
+		RegistryThroughProxyCheckArgName,
+		PreflightSkipRegistryThroughProxy,
+		"Skip checking registry through proxy.",
+	)
 }

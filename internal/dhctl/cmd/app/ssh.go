@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/spf13/pflag"
 )
 
 const DefaultSSHAgentPrivateKeys = "~/.ssh/id_rsa"
@@ -40,44 +40,80 @@ var (
 	BecomePass    = ""
 )
 
-func DefineSSHFlags(cmd *kingpin.CmdClause) {
-	cmd.Flag("ssh-agent-private-keys", "Paths to private keys. Those keys will be used to connect to servers and to the bastion. Can be specified multiple times (default: '~/.ssh/id_rsa')").
-		Envar(ConfigEnvName("SSH_AGENT_PRIVATE_KEYS")).
-		StringsVar(&SSHAgentPrivateKeys)
-	cmd.Flag("ssh-bastion-host", "Jumper (bastion) host to connect to servers (will be used both by terraform and ansible). Only IPs or hostnames are supported, name from ssh-config will not work.").
-		Envar(ConfigEnvName("SSH_BASTION_HOST")).
-		StringVar(&SSHBastionHost)
-	cmd.Flag("ssh-bastion-port", "SSH destination port").
-		Envar(ConfigEnvName("SSH_BASTION_PORT")).
-		StringVar(&SSHBastionPort)
-	cmd.Flag("ssh-bastion-user", "User to authenticate under when connecting to bastion (default: $USER)").
-		Default(SSHBastionUser).
-		Envar(ConfigEnvName("SSH_BASTION_USER")).
-		StringVar(&SSHBastionUser)
-	cmd.Flag("ssh-user", "User to authenticate under (default: $USER)").
-		Envar(ConfigEnvName("SSH_USER")).
-		Default(SSHUser).
-		StringVar(&SSHUser)
-	cmd.Flag("ssh-host", "SSH destination hosts, can be specified multiple times").
-		Envar(ConfigEnvName("SSH_HOSTS")).
-		StringsVar(&SSHHosts)
-	cmd.Flag("ssh-port", "SSH destination port").
-		Envar(ConfigEnvName("SSH_PORT")).
-		StringVar(&SSHPort)
-	cmd.Flag("ssh-extra-args", "extra args for ssh commands (-vvv)").
-		Envar(ConfigEnvName("SSH_EXTRA_ARGS")).
-		StringVar(&SSHExtraArgs)
+func DefineSSHFlags(flagSet *pflag.FlagSet) {
+	SSHAgentPrivateKeys = SetStringSliceVarFromEnv("SSH_AGENT_PRIVATE_KEYS", SSHAgentPrivateKeys)
+	flagSet.StringSliceVar(
+		&SSHAgentPrivateKeys,
+		"ssh-agent-private-keys",
+		SSHAgentPrivateKeys,
+		"Paths to private keys. Those keys will be used to connect to servers and to the bastion. Can be specified multiple times (default: '~/.ssh/id_rsa')",
+	)
 
-	cmd.PreAction(func(c *kingpin.ParseContext) (err error) {
-		if len(SSHAgentPrivateKeys) == 0 {
-			SSHAgentPrivateKeys = append(SSHAgentPrivateKeys, DefaultSSHAgentPrivateKeys)
-		}
-		SSHPrivateKeys, err = ParseSSHPrivateKeyPaths(SSHAgentPrivateKeys)
-		if err != nil {
-			return fmt.Errorf("ssh private keys: %v", err)
-		}
-		return nil
-	})
+	SSHHosts = SetStringSliceVarFromEnv("SSH_HOSTS", SSHHosts)
+	flagSet.StringSliceVar(
+		&SSHHosts,
+		"ssh-host",
+		SSHHosts,
+		"SSH destination hosts, can be specified multiple times",
+	)
+
+	SSHBastionHost = SetStringVarFromEnv("SSH_BASTION_HOST", SSHBastionHost)
+	flagSet.StringVar(
+		&SSHBastionHost,
+		"ssh-bastion-host",
+		SSHBastionHost,
+		"Jumper (bastion) host to connect to servers (will be used both by terraform and ansible). Only IPs or hostnames are supported, name from ssh-config will not work.",
+	)
+
+	SSHBastionPort = SetStringVarFromEnv("SSH_BASTION_PORT", SSHBastionPort)
+	flagSet.StringVar(
+		&SSHBastionPort,
+		"ssh-bastion-port",
+		SSHBastionPort,
+		"SSH destination port.",
+	)
+
+	flagSet.StringVar(
+		&SSHBastionUser,
+		"ssh-bastion-user",
+		SSHBastionUser,
+		"User to authenticate under when connecting to bastion (default: $USER)",
+	)
+
+	flagSet.StringVar(
+		&SSHUser,
+		"ssh-user",
+		SSHUser,
+		"User to authenticate under (default: $USER)",
+	)
+
+	SSHPort = SetStringVarFromEnv("SSH_PORT", SSHPort)
+	flagSet.StringVar(
+		&SSHPort,
+		"ssh-port",
+		SSHPort,
+		"SSH destination port.",
+	)
+
+	SSHExtraArgs = SetStringVarFromEnv("SSH_EXTRA_ARGS", SSHExtraArgs)
+	flagSet.StringVar(
+		&SSHExtraArgs,
+		"ssh-extra-args",
+		SSHExtraArgs,
+		"extra args for ssh commands (-vvv)",
+	)
+}
+
+func CheckSSHParameters() error {
+	if len(SSHAgentPrivateKeys) == 0 {
+		SSHAgentPrivateKeys = append(SSHAgentPrivateKeys, DefaultSSHAgentPrivateKeys)
+	}
+	var err error
+	SSHPrivateKeys, err = ParseSSHPrivateKeyPaths(SSHAgentPrivateKeys)
+	if err != nil {
+		return fmt.Errorf("ssh private keys: %v", err)
+	}
+	return nil
 }
 
 func ParseSSHPrivateKeyPaths(pathSets []string) ([]string, error) {
@@ -107,10 +143,14 @@ func ParseSSHPrivateKeyPaths(pathSets []string) ([]string, error) {
 	return res, nil
 }
 
-func DefineBecomeFlags(cmd *kingpin.CmdClause) {
+func DefineBecomeFlags(flagSet *pflag.FlagSet) {
 	// Ansible compatible
-	cmd.Flag("ask-become-pass", "Ask for sudo password before the installation process.").
-		Envar(ConfigEnvName("ASK_BECOME_PASS")).
-		Short('K').
-		BoolVar(&AskBecomePass)
+	AskBecomePass = SetBoolVarFromEnv("ASK_BECOME_PASS", AskBecomePass)
+	flagSet.BoolVarP(
+		&AskBecomePass,
+		"ask-become-pass",
+		"K",
+		false,
+		"Ask for sudo password before the installation process.",
+	)
 }

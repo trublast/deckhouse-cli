@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -42,42 +43,84 @@ var (
 	CacheKubeLabels          = make(map[string]string)
 )
 
-func DefineCacheFlags(cmd *kingpin.CmdClause) {
-	cmd.Flag("cache-dir", "Directory to store the cache.").
-		Envar(ConfigEnvName("CACHE_DIR")).
-		StringVar(&CacheDir)
+func DefineCacheFlags(flagSet *pflag.FlagSet) {
+	CacheDir = SetStringVarFromEnv("CACHE_DIR", CacheDir)
+	flagSet.StringVar(
+		&CacheDir,
+		"cache-dir",
+		CacheDir,
+		"Directory to store the cache.",
+	)
 
-	cmd.Flag("use-cache", fmt.Sprintf(`Behaviour for using terraform state cache. May be:
+	UseTfCache = SetStringVarFromEnv("USE_CACHE", UseTfCache)
+	flagSet.StringVar(
+		&UseTfCache,
+		"use-cache",
+		UseStateCacheAsk,
+		fmt.Sprintf(`Behaviour for using terraform state cache. May be:
 	%s - ask user about it (Default)
    	%s - use cache
 	%s  - don't use cache
-	`, UseStateCacheAsk, UseStateCacheYes, UseStateCacheNo)).
-		Envar(ConfigEnvName("USE_CACHE")).
-		Default(UseStateCacheAsk).
-		EnumVar(&UseTfCache, UseStateCacheAsk, UseStateCacheYes, UseStateCacheNo)
+	`, UseStateCacheAsk, UseStateCacheYes, UseStateCacheNo),
+	)
 
-	cmd.Flag("kube-cache-store-kubeconfig", "Path to kubernetes config file for storing cache in kubernetes secret").
-		Envar(ConfigEnvName("CACHE_STORE_KUBE_CONFIG")).
-		StringVar(&CacheKubeConfig)
-	cmd.Flag("kube-cachestore-kubeconfig-context", "Context from kubernetes config to connect to Kubernetes API. for storing cache in kubernetes secret").
-		Envar(ConfigEnvName("CACHE_STORE_KUBE_CONFIG_CONTEXT")).
-		StringVar(&CacheKubeConfigContext)
-	cmd.Flag("kube-cachestore-kube-client-from-cluster", "Use in-cluster Kubernetes API access. for storing cache in kubernetes secret").
-		Envar(ConfigEnvName("CACHE_STORE_KUBE_CLIENT_FROM_CLUSTER")).
-		BoolVar(&CacheKubeConfigInCluster)
-	cmd.Flag("kube-cachestore-namespace", "Use in-cluster Kubernetes API access. for storing cache in kubernetes secret").
-		Envar(ConfigEnvName("CACHE_STORE_KUBE_NAMESPACE")).
-		StringVar(&CacheKubeNamespace)
-	cmd.Flag("kube-cachestore-labels", "List labels for cache secrets").
-		Envar(ConfigEnvName("CACHE_STORE_KUBE_LABELS")).
-		StringMapVar(&CacheKubeLabels)
-	cmd.Flag("kube-cachestore-name", "Name for cache secret").
-		Envar(ConfigEnvName("CACHE_STORE_KUBE_NAME")).
-		StringVar(&CacheKubeName)
+	CacheKubeConfig = SetStringVarFromEnv("CACHE_STORE_KUBE_CONFIG", CacheKubeConfig)
+	flagSet.StringVar(
+		&CacheKubeConfig,
+		"kube-cache-store-kubeconfig",
+		CacheKubeConfig,
+		"Path to kubernetes config file for storing cache in kubernetes secret.",
+	)
+
+	CacheKubeConfigContext = SetStringVarFromEnv("CACHE_STORE_KUBE_CONFIG_CONTEXT", CacheKubeConfigContext)
+	flagSet.StringVar(
+		&CacheKubeConfigContext,
+		"kube-cachestore-kubeconfig-context",
+		CacheKubeConfigContext,
+		"Context from kubernetes config to connect to Kubernetes API. for storing cache in kubernetes secret.",
+	)
+
+	CacheKubeConfigInCluster = SetBoolVarFromEnv("CACHE_STORE_KUBE_CLIENT_FROM_CLUSTER", CacheKubeConfigInCluster)
+	flagSet.BoolVar(
+		&CacheKubeConfigInCluster,
+		"kube-cachestore-kube-client-from-cluster",
+		CacheKubeConfigInCluster,
+		"Use in-cluster Kubernetes API access. for storing cache in kubernetes secret.",
+	)
+
+	CacheKubeNamespace = SetStringVarFromEnv("CACHE_STORE_KUBE_NAMESPACE", CacheKubeNamespace)
+	flagSet.StringVar(
+		&CacheKubeNamespace,
+		"kube-cachestore-namespace",
+		CacheKubeNamespace,
+		"Use in-cluster Kubernetes API access. for storing cache in kubernetes secret.",
+	)
+
+	for _, s := range SetStringSliceVarFromEnv("CACHE_STORE_KUBE_LABELS", []string{}) {
+		item := strings.Split(s, ":")
+		CacheKubeLabels[item[0]] = item[1]
+	}
+	flagSet.StringToStringVar(
+		&CacheKubeLabels,
+		"kube-cachestore-labels",
+		CacheKubeLabels,
+		"List labels for cache secrets.",
+	)
+
+	CacheKubeName = SetStringVarFromEnv("CACHE_STORE_KUBE_NAME", CacheKubeName)
+	flagSet.StringVar(
+		&CacheKubeName,
+		"kube-cachestore-name",
+		CacheKubeName,
+		"Name for cache secret.",
+	)
 }
 
-func DefineDropCacheFlags(cmd *kingpin.CmdClause) {
-	cmd.Flag("yes-i-want-to-drop-cache", "All cached information will be deleted from your local cache.").
-		Default("false").
-		BoolVar(&DropCache)
+func DefineDropCacheFlags(flagSet *pflag.FlagSet) {
+	flagSet.BoolVar(
+		&DropCache,
+		"yes-i-want-to-drop-cache",
+		DropCache,
+		"All cached information will be deleted from your local cache.",
+	)
 }
