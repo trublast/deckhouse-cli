@@ -131,6 +131,7 @@ func buildInstallerContext() *image.InstallerContext {
 		},
 		Args:     os.Args[1:],
 		ImageTag: ImageTag,
+		TempDir:  TempDir,
 	}
 	return ctx
 }

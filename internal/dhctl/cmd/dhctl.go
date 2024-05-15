@@ -23,7 +23,6 @@ func NewCommand() *cobra.Command {
 		DefineBootstrapCommand(),
 	)
 
-	addRegistryFlags(dhctlCmd.Flags())
 	logs.AddFlags(dhctlCmd.PersistentFlags())
 
 	return dhctlCmd

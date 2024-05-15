@@ -1,6 +1,8 @@
 package dhctl
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/logs"
 
@@ -21,6 +23,8 @@ func DefineBootstrapCommand() *cobra.Command {
 	}
 	/*
 	 */
+	addRegistryFlags(cmd.Flags())
+
 	app.DefineCacheFlags(cmd.Flags())
 	app.DefineDropCacheFlags(cmd.Flags())
 	app.GlobalFlags(cmd.Flags())
@@ -52,5 +56,5 @@ func bootstrap(cmd *cobra.Command, args []string) error {
 }
 
 func cleanup(cmd *cobra.Command, args []string) error {
-	return nil
+	return os.RemoveAll(TempDir)
 }

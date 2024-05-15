@@ -15,7 +15,13 @@
 package image
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"slices"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -31,6 +37,7 @@ type InstallerContext struct {
 	contexts.BaseContext
 	Args     []string
 	ImageTag string
+	TempDir  string
 }
 
 func PullInstallerImage(ctx *InstallerContext) error {
@@ -41,14 +48,77 @@ func PullInstallerImage(ctx *InstallerContext) error {
 		return err
 	}
 
-	log.InfoF("Pulling %s...", imageRef)
-	_, err = remote.Image(ref, remoteOpts...)
+	log.InfoF("Pulling %s...\n", imageRef)
+	img, err := remote.Image(ref, remoteOpts...)
 	if err != nil {
 		if errorutil.IsImageNotFoundError(err) {
 			return fmt.Errorf("⚠️ %s Not found in registry", imageRef)
 		}
 
 		return fmt.Errorf("pull image %s metadata: %w", imageRef, err)
+	}
+	layers, err := img.Layers()
+	if err != nil {
+		return err
+	}
+
+	slices.Reverse(layers)
+
+	for _, l := range layers {
+		r, err := l.Compressed()
+		if err != nil {
+			return err
+		}
+
+		digest, err := l.Digest()
+		if err != nil {
+			return err
+		}
+
+		err = writeAndUnpackLayer(r, ctx.TempDir, digest.String())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeAndUnpackLayer(r io.ReadCloser, targetDir, filename string) error {
+	defer r.Close()
+	log.InfoF("Writing layer %s to %s ...\n", filename, targetDir)
+
+	decompressedLayer, err := gzip.NewReader(r)
+	if err != nil {
+		return fmt.Errorf("unzip layer: %w", err)
+	}
+
+	tarReader := tar.NewReader(decompressedLayer)
+	defer decompressedLayer.Close()
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+		path := filepath.Join(targetDir, header.Name)
+		info := header.FileInfo()
+		if info.IsDir() {
+			if err = os.MkdirAll(path, info.Mode()); err != nil {
+				return err
+			}
+			continue
+		}
+
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		_, err = io.Copy(file, tarReader)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
