@@ -14,9 +14,10 @@ valid license for any commercial version of the Deckhouse Kubernetes Platform.
 
 func NewCommand() *cobra.Command {
 	dhctlCmd := &cobra.Command{
-		Use:   "i",
-		Short: "run Deckhouse installer tool",
-		Long:  "Run Deckhouse installer tool.\n" + licenceNote,
+		Use:     "i",
+		Aliases: []string{"dhctl"},
+		Short:   "run Deckhouse installer tool",
+		Long:    "Run Deckhouse installer tool.\n" + licenceNote,
 	}
 
 	dhctlCmd.AddCommand(

@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"syscall"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -32,24 +34,34 @@ import (
 	"github.com/deckhouse/deckhouse-cli/internal/mirror/util/log"
 )
 
-// InstallerContext holds data related to pending mirroring-from-registry operation.
-type InstallerContext struct {
-	contexts.BaseContext
-	Args     []string
-	ImageTag string
-	TempDir  string
+type Image struct {
+	ctx      *contexts.BaseContext
+	args     []string
+	imageTag string
+	tempDir  string
+	envs     map[string]string
 }
 
-func PullInstallerImage(ctx *InstallerContext) error {
-	nameOpts, remoteOpts := auth.MakeRemoteRegistryRequestOptions(ctx.RegistryAuth, ctx.Insecure, ctx.SkipTLSVerification)
-	imageRef := fmt.Sprintf("%s/%s:%s", ctx.DeckhouseRegistryRepo, "install", ctx.ImageTag)
+func NewImage(ctx *contexts.BaseContext, tempDir string, imageTag string, args []string, envs map[string]string) *Image {
+	return &Image{
+		ctx:      ctx,
+		tempDir:  tempDir,
+		imageTag: imageTag,
+		args:     args,
+		envs:     envs,
+	}
+}
+
+func (img *Image) Pull() error {
+	nameOpts, remoteOpts := auth.MakeRemoteRegistryRequestOptions(img.ctx.RegistryAuth, img.ctx.Insecure, img.ctx.SkipTLSVerification)
+	imageRef := fmt.Sprintf("%s/%s:%s", img.ctx.DeckhouseRegistryRepo, "install", img.imageTag)
 	ref, err := name.ParseReference(imageRef, nameOpts...)
 	if err != nil {
 		return err
 	}
 
 	log.InfoF("Pulling %s...\n", imageRef)
-	img, err := remote.Image(ref, remoteOpts...)
+	image, err := remote.Image(ref, remoteOpts...)
 	if err != nil {
 		if errorutil.IsImageNotFoundError(err) {
 			return fmt.Errorf("⚠️ %s Not found in registry", imageRef)
@@ -57,7 +69,7 @@ func PullInstallerImage(ctx *InstallerContext) error {
 
 		return fmt.Errorf("pull image %s metadata: %w", imageRef, err)
 	}
-	layers, err := img.Layers()
+	layers, err := image.Layers()
 	if err != nil {
 		return err
 	}
@@ -75,7 +87,7 @@ func PullInstallerImage(ctx *InstallerContext) error {
 			return err
 		}
 
-		err = writeAndUnpackLayer(r, ctx.TempDir, digest.String())
+		err = writeAndUnpackLayer(r, img.tempDir, digest.String())
 		if err != nil {
 			return err
 		}
@@ -121,4 +133,44 @@ func writeAndUnpackLayer(r io.ReadCloser, targetDir, filename string) error {
 		}
 	}
 	return nil
+}
+
+func (img *Image) Run() error {
+	log.InfoF("Running %s...\n", img.tempDir)
+	//Hold onto old root
+	oldrootHandle, err := os.Open("/")
+	if err != nil {
+		panic(err)
+	}
+	defer oldrootHandle.Close()
+
+	cmd := exec.Command(img.args[0], img.args[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	//New Root time
+	err = syscall.Chdir(img.tempDir)
+	if err != nil {
+		return err
+	}
+
+	err = syscall.Chroot(img.tempDir)
+	if err != nil {
+		return err
+	}
+
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	//Go back to old root
+	//So that we can clean up the temp dir
+	err = syscall.Fchdir(int(oldrootHandle.Fd()))
+	if err != nil {
+		return err
+	}
+
+	return syscall.Chroot(".")
 }

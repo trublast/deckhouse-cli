@@ -18,12 +18,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/spf13/pflag"
 
 	"github.com/deckhouse/deckhouse-cli/internal/dhctl/cmd/app"
-	"github.com/deckhouse/deckhouse-cli/internal/dhctl/image"
-	"github.com/deckhouse/deckhouse-cli/internal/mirror/contexts"
 )
 
 const (
@@ -100,38 +97,4 @@ func addRegistryFlags(flagSet *pflag.FlagSet) {
 		false,
 		"Interact with registries over HTTP.",
 	)
-}
-
-func getSourceRegistryAuthProvider() authn.Authenticator {
-	if RegistryLogin != "" {
-		return authn.FromConfig(authn.AuthConfig{
-			Username: RegistryLogin,
-			Password: RegistryPassword,
-		})
-	}
-
-	if LicenseToken != "" {
-		return authn.FromConfig(authn.AuthConfig{
-			Username: "license-token",
-			Password: LicenseToken,
-		})
-	}
-
-	return authn.Anonymous
-}
-
-func buildInstallerContext() *image.InstallerContext {
-	ctx := &image.InstallerContext{
-		BaseContext: contexts.BaseContext{
-			Insecure:              Insecure,
-			SkipTLSVerification:   TLSSkipVerify,
-			DeckhouseRegistryRepo: RegistryRepo,
-			RegistryAuth:          getSourceRegistryAuthProvider(),
-			UnpackedImagesPath:    TempDir,
-		},
-		Args:     os.Args[1:],
-		ImageTag: ImageTag,
-		TempDir:  TempDir,
-	}
-	return ctx
 }

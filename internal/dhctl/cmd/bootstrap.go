@@ -50,9 +50,17 @@ func parseAndValidateParameters(cmd *cobra.Command, args []string) error {
 }
 
 func bootstrap(cmd *cobra.Command, args []string) error {
-	ctx := buildInstallerContext()
-	return image.PullInstallerImage(ctx)
+	img := image.NewImage(buildContext(), TempDir, ImageTag, os.Args[1:], getDhctlEnvs())
+	err := img.Pull()
+	if err != nil {
+		return err
+	}
+	err = img.Run()
+	if err != nil {
+		return err
+	}
 
+	return nil
 }
 
 func cleanup(cmd *cobra.Command, args []string) error {
