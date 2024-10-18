@@ -21,6 +21,7 @@ kube-system:
     - d8-pki
     - d8-provider-cluster-configuration
     - d8-static-cluster-configuration
+    - d8-secret-encryption-key
 d8-cert-manager:
   v1:
     Secret:
