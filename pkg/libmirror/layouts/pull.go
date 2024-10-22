@@ -70,7 +70,7 @@ func PullDeckhouseReleaseChannels(mirrorCtx *contexts.PullContext, layouts *Imag
 		layouts.ReleaseChannel,
 		layouts.ReleaseChannelImages,
 		WithTagToDigestMapper(layouts.TagsResolver.GetTagDigest),
-		WithAllowMissingTags(mirrorCtx.SpecificVersion != nil),
+		WithAllowMissingTags(mirrorCtx.Version != ""),
 	); err != nil {
 		return err
 	}
